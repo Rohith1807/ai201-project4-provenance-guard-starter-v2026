@@ -80,16 +80,13 @@
 <!-- Write the rule in words, then give the numbers. What happens when the two
      signals disagree? -->
 
-**The rule:** *(Milestone 4 — to be filled in once the style signal is implemented)*
+**The rule:** Weighted average of the two signals, with the model signal weighted higher because it is harder to game — defeating it requires writing in a way a language model finds surprising, which is a real constraint. The style signal is defeated by cheap surface edits (typos, sentence breaks), so it earns less weight. When the two signals strongly disagree (gap > 0.35), the combined score is nudged 20% of that gap toward whichever signal reads more human, implementing the false-positive preference from criteria.md: wrong accusations cost more than missed detections.
 
-**The numbers:** *(Milestone 4)*
+**The numbers:** model signal weight = 0.65, style signal weight = 0.35. Strong-disagreement threshold = 0.35.
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
-
-**A case where my two signals split, and what my rule does with it:** *(Milestone 4)*
+**A case where my two signals split, and what my rule does with it:** "Clearly human" text (personal, conversational writing) scored model=0.326 (human) but style=0.635 (AI-leaning), a gap of 0.309. The style signal misread it because the text is short (~53 words), so type-token ratio is high across the board and sentence spread is low. The weighted average lands at 0.434 (human), which is correct — the model signal's clear human reading pulls the combined score below the 0.5 threshold despite the style signal disagreeing.
 
 
 

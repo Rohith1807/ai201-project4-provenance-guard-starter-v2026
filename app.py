@@ -164,6 +164,8 @@ def submit():
          "model_score": 0.0, "style_score": 0.0}
     """
     import detector
+    import scoring
+    import stylometry
 
     payload = request.get_json(silent=True) or {}
 
@@ -188,12 +190,11 @@ def submit():
         audit.log_rejection(creator_id=creator_id, reason="text_too_short")
         return jsonify({"error": "bad_request", "message": str(exc)}), 400
 
-    content_id = str(uuid.uuid4())
+    style_score = stylometry.style_signal(text)
+    combined_score = scoring.combine_signals(model_score, style_score)
+    guess = "ai" if combined_score >= 0.5 else "human"
 
-    # Milestone 3: one signal only. style_score and combined_score are placeholders.
-    style_score = None
-    combined_score = model_score
-    guess = "ai" if model_score >= 0.5 else "human"
+    content_id = str(uuid.uuid4())
 
     audit.log_decision(
         content_id=content_id,

@@ -52,11 +52,23 @@ def combine_signals(model_score: float, style_score: float) -> float:
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
     """
-    # TODO: replace this
-    return (
+    # Weighted average: model signal carries more weight because it is harder
+    # to game (requires understanding what makes text predictable) while the
+    # style signal is defeated by cheap surface edits.
+    #
+    # When the two signals strongly disagree (gap > 0.35), we bias toward
+    # whichever reads more human, implementing the false-positive preference
+    # from criteria.md: a wrong accusation costs more than a missed detection.
+    base = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+    gap = abs(model_score - style_score)
+    if gap > 0.35:
+        human_leaning = min(model_score, style_score)
+        # Pull the combined score 20% toward whichever signal reads more human
+        return round(min(max(base - 0.20 * gap, 0.0), 1.0), 4)
+    return round(min(max(base, 0.0), 1.0), 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:

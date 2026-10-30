@@ -58,8 +58,8 @@ MAX_TEXT_LENGTH = int(os.getenv("AI201_MAX_TEXT_LENGTH", "50000"))
 # down BEFORE you code it, and to put the numbers in your README. Whatever you
 # decide, it goes here.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+WEIGHT_MODEL_SIGNAL = 0.65
+WEIGHT_STYLE_SIGNAL = 0.35
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
