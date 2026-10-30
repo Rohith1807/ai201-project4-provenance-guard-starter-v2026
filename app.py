@@ -192,7 +192,7 @@ def submit():
 
     style_score = stylometry.style_signal(text)
     combined_score = scoring.combine_signals(model_score, style_score)
-    guess = "ai" if combined_score >= 0.5 else "human"
+    guess, label = scoring.score_to_label(combined_score)
 
     content_id = str(uuid.uuid4())
 
@@ -203,7 +203,7 @@ def submit():
         model_score=model_score,
         style_score=style_score,
         combined_score=combined_score,
-        label="pending",
+        label=label,
         status="decided",
     )
 
@@ -211,7 +211,7 @@ def submit():
         "content_id": content_id,
         "guess": guess,
         "confidence": combined_score,
-        "label": "pending",
+        "label": label,
         "model_score": model_score,
         "style_score": style_score,
     })
@@ -239,12 +239,26 @@ def appeal():
     """
     payload = request.get_json(silent=True) or {}
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id", "")
+    reasoning = payload.get("reasoning", "")
+
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "bad_request", "message": "Field 'content_id' is required."}), 400
+
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({"error": "bad_request", "message": "Field 'reasoning' is required."}), 400
+
+    if not audit.entries_for(content_id):
+        return jsonify({"error": "not_found", "message": f"No submission found with content_id '{content_id}'."}), 404
+
+    audit.log_appeal(content_id=content_id, creator_id="appealer", reasoning=reasoning)
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "ok": True,
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Your appeal has been recorded. A human reviewer will look at this submission.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

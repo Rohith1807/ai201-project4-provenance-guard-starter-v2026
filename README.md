@@ -101,11 +101,11 @@
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  | *(Milestone 5)* |
-| unsure |  | *(Milestone 5)* |
-| high-confidence AI |  | *(Milestone 5)* |
+| high-confidence human | 0.00 – 0.47 | This submission shows the patterns we'd expect from a person — varied style, unexpected word choices, and the kind of irregularity that tends to be human. We think a person wrote this. |
+| unsure | 0.47 – 0.67 | Our signals don't agree on this one. It has features we associate with human writing and features we associate with AI-generated text. We're not confident either way. If you wrote this yourself, no action is needed — but you can appeal if this result affects you. |
+| high-confidence AI | 0.67 – 1.00 | This submission closely matches the patterns we see in AI-generated text — predictable word choices and an even, regular style. We think it was written by an AI. If you wrote this yourself, you can appeal using the content ID in this response. |
 
-**Why I worded the "unsure" one this way:** *(Milestone 5)*
+**Why I worded the "unsure" one this way:** The unsure label has to do two things that pull against each other: it has to be honest about uncertainty, and it must not read as an accusation. "Our signals don't agree on this one" puts the uncertainty on the system, not the writer. The second sentence tells them what to expect without implying they did something wrong. The appeal line at the end gives them an action only if the result actually affects them — it doesn't assume it does.
 
 
 
@@ -126,17 +126,17 @@
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "The implementation of the proposed framework requires careful consideration of several key factors. First, it is important to note that the system must be able to handle a wide variety of different inputs. Additionally, the overall performance of the solution depends on a number of important variables.", "creator_id": "test-user-ai"}'
+  -d '{"text": "The implementation of the proposed framework requires careful consideration of several key factors. First, it is important to note that the system must be able to handle a wide variety of different inputs. Additionally, the overall performance of the solution depends on a number of important variables. These factors must be carefully evaluated to ensure optimal outcomes.", "creator_id": "sample-user"}'
 ```
 
 ```json
 {
-  "confidence": 0.8864,
-  "content_id": "3ca6cb93-e806-448e-81cd-a3325f6fcb6a",
+  "confidence": 0.8003,
+  "content_id": "18f4301c-21a1-457c-8992-2e9216ec112c",
   "guess": "ai",
-  "label": "pending",
-  "model_score": 0.8864,
-  "style_score": null
+  "label": "This submission closely matches the patterns we see in AI-generated text — predictable word choices and an even, regular style. We think it was written by an AI. If you wrote this yourself, you can appeal using the content ID in this response.",
+  "model_score": 0.8774,
+  "style_score": 0.6571
 }
 ```
 
@@ -145,51 +145,68 @@ $ curl -X POST http://127.0.0.1:5000/submit \
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "3ca6cb93-e806-448e-81cd-a3325f6fcb6a", "reasoning": "I wrote this myself."}'
-```
-
-```json
-```
-*(Appeal endpoint built in Milestone 5)*
-
-**What the log shows afterwards**
-
-```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+  -d '{"content_id": "18f4301c-21a1-457c-8992-2e9216ec112c", "reasoning": "I wrote this paragraph myself for a class assignment on formal academic writing."}'
 ```
 
 ```json
 {
-  "count": 3,
+  "content_id": "18f4301c-21a1-457c-8992-2e9216ec112c",
+  "message": "Your appeal has been recorded. A human reviewer will look at this submission.",
+  "ok": true,
+  "status": "under_review"
+}
+```
+
+**What the log shows afterwards**
+
+```bash
+$ curl "http://127.0.0.1:5000/log?limit=4"
+```
+
+```json
+{
+  "count": 4,
   "entries": [
     {
-      "combined_score": 0.8864,
-      "content_id": "3ca6cb93-e806-448e-81cd-a3325f6fcb6a",
-      "creator_id": "test-user-ai",
-      "guess": "ai",
-      "label": "pending",
-      "model_score": 0.8864,
-      "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-10-30T18:18:12+00:00"
-    },
-    {
-      "combined_score": 0.3222,
-      "content_id": "ab9095c0-92e2-4387-be86-56afdfe5ab87",
-      "creator_id": "test-user-human",
+      "combined_score": 0.4645,
+      "content_id": "9449424d-7bcb-4fb3-8021-5df0072491d0",
+      "creator_id": "label-coverage-test",
       "guess": "human",
-      "label": "pending",
-      "model_score": 0.3222,
+      "label": "This submission shows the patterns we'd expect from a person — varied style, unexpected word choices, and the kind of irregularity that tends to be human. We think a person wrote this.",
+      "model_score": 0.4491,
       "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-10-30T18:18:12+00:00"
+      "style_score": 0.493,
+      "timestamp": "2026-10-30T18:58:52+00:00"
     },
     {
-      "creator_id": "test-user-bad",
-      "event": "rejected",
-      "reason": "empty_text",
-      "status": "rejected",
-      "timestamp": "2026-10-30T18:18:12+00:00"
+      "combined_score": 0.5605,
+      "content_id": "2f1ac76c-b87a-4631-bb37-be3476dfef3a",
+      "creator_id": "label-coverage-test",
+      "guess": "unsure",
+      "label": "Our signals don't agree on this one. It has features we associate with human writing and features we associate with AI-generated text. We're not confident either way. If you wrote this yourself, no action is needed — but you can appeal if this result affects you.",
+      "model_score": 0.6041,
+      "status": "decided",
+      "style_score": 0.4794,
+      "timestamp": "2026-10-30T18:58:53+00:00"
+    },
+    {
+      "combined_score": 0.8003,
+      "content_id": "18f4301c-21a1-457c-8992-2e9216ec112c",
+      "creator_id": "label-coverage-test",
+      "guess": "ai",
+      "label": "This submission closely matches the patterns we see in AI-generated text — predictable word choices and an even, regular style. We think it was written by an AI. If you wrote this yourself, you can appeal using the content ID in this response.",
+      "model_score": 0.8774,
+      "status": "decided",
+      "style_score": 0.6571,
+      "timestamp": "2026-10-30T18:58:53+00:00"
+    },
+    {
+      "content_id": "18f4301c-21a1-457c-8992-2e9216ec112c",
+      "creator_id": "appealer",
+      "event": "appeal",
+      "reasoning": "I wrote this paragraph myself for a class assignment on formal academic writing.",
+      "status": "under_review",
+      "timestamp": "2026-10-30T18:58:53+00:00"
     }
   ]
 }
