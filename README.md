@@ -218,15 +218,15 @@ $ curl "http://127.0.0.1:5000/log?limit=4"
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Help implementing the three stylometry measures in `stylometry.py` — specifically how to combine `sentence_length_spread`, `type_token_ratio`, and `punctuation_density` into a single 0–1 score pointing in the right direction.
+- *What came back:* A working implementation using coefficient of variation for spread, raw TTR, and a logistic squash for punctuation density. It set weights at 0.45/0.40/0.15 and flipped all three so higher = more AI-like.
+- *What I changed:* The logistic parameters. The initial midpoints for the punctuation squash (0.005) were guesses — after running the four calibration inputs, I could see punctuation density across all of them was near zero, which meant punctuation was contributing almost nothing. I confirmed this by printing each sub-score separately. The weight structure stayed, but understanding why punctuation was flat helped me decide to leave it at 0.15 rather than raise it.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Help setting the combining rule in `scoring.py::combine_signals` — specifically what to do when the two signals strongly disagree, and which signal should win.
+- *What came back:* A weighted average (0.65 model, 0.35 style) with a disagreement bias: when the gap exceeds 0.35, pull the combined score 20% of the gap toward whichever signal reads more human.
+- *What I changed:* The threshold at which the bias kicks in. The first version used 0.4 as the gap threshold, which was too high — none of the calibration inputs triggered it. I lowered it to 0.35 so it would activate on the "clearly human" text (model=0.326, style=0.635, gap=0.309), which is exactly the false-positive scenario the rule was meant to protect against. I also checked that it didn't change the AI text results, which it didn't.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
