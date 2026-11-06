@@ -519,36 +519,116 @@ Audit log after appeal (GET /log?limit=2 — the two entries for this content_id
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** Raised `AI_THRESHOLD` from 0.67 to 0.75 in `config.py`. This widens the "unsure" band from 0.47–0.67 to 0.47–0.75, so texts that score between 0.67 and 0.75 are now labeled "unsure" instead of "ai."
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** Pattern 2 — four false positives (FP02–FP05) all scored between 0.72 and 0.78, just above the old AI threshold. All four were genuine human writing in a formal register. The diagnosis said the stage was both signals and the mechanism was that formal writing looks identical to AI on both signals. Since I can't fix the signals without a bigger redesign, the threshold was the lever available. Raising it to 0.75 means the signals have to agree more strongly before the service accuses someone of using AI.
 
 ### Attack Run — After
 
-<!-- Same format. `run_attacks.py --label after` -->
+Run: `python run_attacks.py --set attack_set/attack_set --label after` · 2026-11-06 · 56 attacks · 8 BROKE, 48 HELD
 
+| ID | Family | Targeting | Status | Guess | Score | Verdict |
+|---|---|---|---|---|---|---|
+| EV01 | evasion | signal two: typos raise word variety | 200 | human | 0.236 | BROKE |
+| EV02 | evasion | signal two: broken-up sentences raise length spread | 200 | human | 0.384 | BROKE |
+| EV03 | evasion | signal two: a pasted quotation changes the shape | 200 | unsure | 0.604 | HELD |
+| EV04 | evasion | signal one: unusual words raise perplexity | 200 | unsure | 0.623 | HELD |
+| EV05 | evasion | both signals: heavy human editing pass | 200 | human | 0.326 | BROKE |
+| EV06 | evasion | signal two: one very long sentence and one very short | 200 | human | 0.465 | BROKE |
+| EV07 | evasion | signal two: padding with punctuation | 200 | unsure | 0.577 | HELD |
+| EV08 | evasion | signal one: text below the token window | 200 | human | 0.355 | BROKE |
+| EV09 | evasion | both: AI text with a human opening paragraph bolted on | 200 | unsure | 0.621 | HELD |
+| EV10 | evasion | signal two: repeated stanza structure | 200 | ai | 0.898 | HELD |
+| FP01 | false_positive | plain, clear human writing with no flourishes | 200 | unsure | 0.587 | HELD |
+| FP02 | false_positive | human writing in a formal register | 200 | unsure | 0.723 | HELD |
+| FP03 | false_positive | a non-native English speaker writing carefully | 200 | unsure | 0.748 | HELD |
+| FP04 | false_positive | a student essay written to a rubric | 200 | unsure | 0.743 | HELD |
+| FP05 | false_positive | technical documentation written by a person | 200 | ai | 0.775 | BROKE |
+| FP06 | false_positive | a person imitating a formal template | 200 | unsure | 0.652 | HELD |
+| FP07 | false_positive | human writing that repeats a phrase deliberately | 200 | unsure | 0.643 | HELD |
+| FP08 | false_positive | very short genuine human submission | 200 | human | 0.363 | HELD |
+| PI01 | prompt_injection | instruction to ignore the check | 200 | human | 0.401 | BROKE |
+| PI02 | prompt_injection | instruction disguised as a system message | 200 | human | 0.222 | BROKE |
+| PI03 | prompt_injection | instruction wrapped in the writer's voice | 200 | unsure | 0.574 | HELD |
+| PI04 | prompt_injection | attempt to make the label text hostile | 200 | unsure | 0.509 | HELD |
+| PI05 | prompt_injection | attempt to inject into the audit log | 200 | human | 0.437 | HELD |
+| PI06 | prompt_injection | instruction plus real human text | 200 | unsure | 0.553 | HELD |
+| MF01 | malformed | text is only whitespace | 400 | — | — | HELD |
+| MF02 | malformed | text is a single character | 400 | — | — | HELD |
+| MF03 | malformed | text is control characters | 200 | human | 0.090 | HELD |
+| MF04 | malformed | text is only punctuation | 200 | human | 0.137 | HELD |
+| MF05 | malformed | text is a very long single word | 200 | ai | 0.779 | HELD |
+| MF06 | malformed | text is emoji only | 200 | ai | 0.998 | HELD |
+| MF07 | malformed | text is right-to-left script | 200 | ai | 0.939 | HELD |
+| MF08 | malformed | text is 60,000 characters | 400 | — | — | HELD |
+| RQ01 | malformed | no text field at all | 400 | — | — | HELD |
+| RQ02 | malformed | no creator_id | 400 | — | — | HELD |
+| RQ03 | malformed | text is a number | 400 | — | — | HELD |
+| RQ04 | malformed | text is a list | 400 | — | — | HELD |
+| RQ05 | malformed | text is null | 400 | — | — | HELD |
+| RQ06 | malformed | creator_id is an object | 400 | — | — | HELD |
+| RQ07 | malformed | body is a JSON array, not an object | 400 | — | — | HELD |
+| RQ08 | malformed | body is unparseable JSON | 400 | — | — | HELD |
+| RQ09 | malformed | body is empty | 400 | — | — | HELD |
+| RQ10 | malformed | body is form-encoded, not JSON | 429 | — | — | HELD |
+| RQ11 | malformed | body is JSON claiming to be plain text | 429 | — | — | HELD |
+| RQ12 | malformed | deeply nested JSON | 400 | — | — | HELD |
+| FL01_01 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.114 | (within limit) |
+| FL01_02 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.114 | (within limit) |
+| FL01_03 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.114 | (within limit) |
+| FL01_04 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.114 | (within limit) |
+| FL01_05 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.114 | (within limit) |
+| FL01_06 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_07 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_08 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_09 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_10 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_11 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_12 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
 
+**Summary by family — after:**
+
+| Family | Attacks | BROKE | HELD |
+|---|---|---|---|
+| evasion | 10 | 5 | 5 |
+| false_positive | 8 | 1 | 7 |
+| prompt_injection | 6 | 2 | 4 |
+| malformed | 20 | 0 | 20 |
+| flood_same_creator | 12 | 0 | 12 |
+
+**Run Log — After** (`python run_eval.py --label after` × 3 · 2026-11-06 · `results/run_2026-11-06_1259_after.md`)
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. my own writing | ≤1 of 10 labeled ai | 0 ai / 10 | 0 ai / 10 | 0 ai / 10 | MET |
+| 2. score spread | gap ≥ 0.40 | gap 0.39 | gap 0.39 | gap 0.39 | MISSED |
+| 3. label coverage | all 3 labels appear | {ai, unsure, human} | {ai, unsure, human} | {ai, unsure, human} | MET |
+| 4. appeal path (manual) | status → under_review + log entry | (carried from before) | — | — | MET |
+| 5. bad input | 5/5 return 400 | 5/5 | 5/5 | 5/5 | MET |
 
 **Did it help, and how do I know:**
 
-<!-- Widening the unsure band usually fixes one problem and creates another.
-     Reporting that trade honestly is worth full credit. -->
+Yes, with one caveat. FP02, FP03, and FP04 — human writing in a formal register, careful non-native prose, and a rubric essay — moved from "ai" (BROKE) to "unsure" (HELD). The service stopped making a confident accusation and downgraded to "we're not sure," which is the right answer when both signals agree on something that might be a false positive. Criterion 3 (label coverage) also fixed itself: the formal report text at 0.737 now lands in the widened unsure band, so all three labels appear in every trial.
 
+FP05 (technical documentation, 0.775) is still BROKE. It scored 0.025 above the new threshold. Fixing it would require raising the threshold to 0.78, which would also reclassify MF05 (the very long single word, 0.779) from "ai" to "unsure." I stopped at 0.75 because it's the round number that fixes three of the four FP attacks cleanly.
 
+The cost the threshold change imposes: any AI text that scores 0.67–0.75 now gets "unsure" instead of "ai." Looking at the attack set, the evasion attacks that were already in the unsure zone (EV03, EV04, EV07, EV09) are unaffected — they were already there. The evasion attacks I failed to hold (EV01, EV02, EV05, EV06, EV08) all scored below 0.47 and were unchanged. The only place the wider band could hurt is if a genuinely AI text scored in the new unsure zone — and nothing in the attack set shows that happening at this threshold.
 
 ---
 
 ## What's Still Broken
 
-<!-- For each attack still getting through and each criterion still missed:
-     what you'd do, and why you stopped. -->
+**Evasion attacks (EV01, EV02, EV05, EV06, EV08)** — the threshold change didn't touch these because they all scored below 0.47 (human zone, not the AI zone). They each defeat signal two (surface editing) or signal one (short text), and no threshold change fixes a signal that's already been collapsed. What would fix them: a minimum-length gate for EV08 (reject texts under 50 words as unscoreable); a signal that uses stemmed vocabulary for EV01 (typos wouldn't count as new words); a signal that looks at semantic coherence rather than just shape for EV06. None of those are small changes. I stopped because they require redesigning a signal, not adjusting a parameter.
 
+**FP05 (technical documentation, 0.775)** — 0.025 above the new threshold. Raising to 0.78 would fix it but would also reclassify MF05, and the right answer for a 500-word technical document that a person wrote is "unsure" anyway, not "ai." Stopped because the trade didn't seem worth a second threshold change without data to justify 0.78 specifically.
 
+**PI01, PI02** — both scored below 0.47 (human zone) because the injection prefix text lowered GPT-2 perplexity across the whole submission. The threshold change is irrelevant: they weren't in the AI zone to begin with. Fixing this would require detecting and stripping prefixes that look like injections before scoring — which is a new pre-processing stage.
+
+**Criterion 2 (score spread = 0.39, still MISSED)** — the threshold change doesn't affect gap width; the two texts score the same as before. The gap would widen if the human text's model score dropped. What would fix it: use a more conversational human text that GPT-2 finds genuinely surprising (more unusual word choices, non-standard sentence fragments). I stopped because fixing it would mean changing scenarios.py, not the service — and the criterion is legitimate; the service just barely missed it.
 
 **The trade I'd make if this ran for real:**
 
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
+I would keep going in the direction I went — more "unsure," fewer confident accusations — and accept that some AI text gets through without a definitive label. A wrong accusation lands on the person who wrote the text; an "unsure" label on AI content just flags it for a human reviewer. The writer pays for a false positive; the platform pays for a missed detection. That asymmetry is easy to decide.
 
 
 
