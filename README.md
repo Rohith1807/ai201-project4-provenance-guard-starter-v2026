@@ -228,6 +228,12 @@ $ curl "http://127.0.0.1:5000/log?limit=4"
 - *What came back:* A weighted average (0.65 model, 0.35 style) with a disagreement bias: when the gap exceeds 0.35, pull the combined score 20% of the gap toward whichever signal reads more human.
 - *What I changed:* The threshold at which the bias kicks in. The first version used 0.4 as the gap threshold, which was too high — none of the calibration inputs triggered it. I lowered it to 0.35 so it would activate on the "clearly human" text (model=0.326, style=0.635, gap=0.309), which is exactly the false-positive scenario the rule was meant to protect against. I also checked that it didn't change the AI text results, which it didn't.
 
+**Moment 3 (unit 8)**
+
+- *What I asked for:* Help choosing which attack family to target with the threshold change. I had two patterns: surface-edit evasion attacks (EV01, EV02, EV06, all defeating signal two) and formal-register false positives (FP02–FP05, both signals reading formal human writing as AI). I asked which one a threshold change could actually fix.
+- *What came back:* The analysis that threshold changes only affect texts in the AI zone — texts that scored between the old threshold (0.67) and a new one. Evasion attacks that scored in the human zone (below 0.47) are out of reach of any threshold change; they need signal-level fixes. False positives that scored just above the AI threshold (0.72–0.78) are exactly the right target for a threshold change.
+- *What I changed:* Which group I targeted. I had been leaning toward the evasion attacks because there were more of them, but the analysis made clear that a threshold change would do nothing for them. I shifted to FP02–FP05, raised the threshold to 0.75, and confirmed by running the attack set again that FP02–FP04 moved to HELD while the evasion attacks were unchanged — as predicted.
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -614,17 +620,98 @@ FP05 (technical documentation, 0.775) is still BROKE. It scored 0.025 above the 
 
 The cost the threshold change imposes: any AI text that scores 0.67–0.75 now gets "unsure" instead of "ai." Looking at the attack set, the evasion attacks that were already in the unsure zone (EV03, EV04, EV07, EV09) are unaffected — they were already there. The evasion attacks I failed to hold (EV01, EV02, EV05, EV06, EV08) all scored below 0.47 and were unchanged. The only place the wider band could hurt is if a genuinely AI text scored in the new unsure zone — and nothing in the attack set shows that happening at this threshold.
 
+### Second Improvement
+
+**What I changed:** Reweighted signals from 0.65 model / 0.35 style to 0.50 model / 0.50 style in `config.py`. This addresses criterion 2 (score spread MISSED). The human text's model score (0.617) was high enough to keep its combined score at 0.411, leaving only a 0.389 gap. With equal weights, the low style score (0.242) pulls the human text's combined score down to 0.355 while the AI text drops from 0.800 to 0.767 — predicted gap 0.412.
+
+**Which diagnosis pointed at it:** Criterion 2 missed because signal one (model signal) weighted the human text's combined score too high. The human text scored model=0.617 — GPT-2 found short, plain sentences moderately predictable. With 65% of the weight there, the human score stayed at 0.411. Giving style equal weight lets the low style score (0.242, human writing is stylistically varied) pull the number down. The diagnosis named signal one as the stage; the mechanism was that plain conversational writing sits in GPT-2's midrange rather than its clearly-human zone.
+
+**Attack Run — After2** (`python run_attacks.py --set attack_set/attack_set --label after2` · 2026-11-06 · 56 attacks · 8 BROKE, 48 HELD)
+
+| ID | Family | Targeting | Status | Guess | Score | Verdict |
+|---|---|---|---|---|---|---|
+| EV01 | evasion | signal two: typos raise word variety | 200 | human | 0.308 | BROKE |
+| EV02 | evasion | signal two: broken-up sentences raise length spread | 200 | human | 0.327 | BROKE |
+| EV03 | evasion | signal two: a pasted quotation changes the shape | 200 | unsure | 0.578 | HELD |
+| EV04 | evasion | signal one: unusual words raise perplexity | 200 | unsure | 0.628 | HELD |
+| EV05 | evasion | both signals: heavy human editing pass | 200 | human | 0.328 | BROKE |
+| EV06 | evasion | signal two: one very long sentence and one very short | 200 | human | 0.418 | BROKE |
+| EV07 | evasion | signal two: padding with punctuation | 200 | unsure | 0.573 | HELD |
+| EV08 | evasion | signal one: text below the token window | 200 | human | 0.402 | BROKE |
+| EV09 | evasion | both: AI text with a human opening paragraph bolted on | 200 | unsure | 0.585 | HELD |
+| EV10 | evasion | signal two: repeated stanza structure | 200 | ai | 0.863 | HELD |
+| FP01 | false_positive | plain, clear human writing with no flourishes | 200 | unsure | 0.574 | HELD |
+| FP02 | false_positive | human writing in a formal register | 200 | unsure | 0.716 | HELD |
+| FP03 | false_positive | a non-native English speaker writing carefully | 200 | unsure | 0.723 | HELD |
+| FP04 | false_positive | a student essay written to a rubric | 200 | unsure | 0.704 | HELD |
+| FP05 | false_positive | technical documentation written by a person | 200 | ai | 0.764 | BROKE |
+| FP06 | false_positive | a person imitating a formal template | 200 | unsure | 0.590 | HELD |
+| FP07 | false_positive | human writing that repeats a phrase deliberately | 200 | unsure | 0.578 | HELD |
+| FP08 | false_positive | very short genuine human submission | 200 | human | 0.380 | HELD |
+| PI01 | prompt_injection | instruction to ignore the check | 200 | human | 0.375 | BROKE |
+| PI02 | prompt_injection | instruction disguised as a system message | 200 | human | 0.229 | BROKE |
+| PI03 | prompt_injection | instruction wrapped in the writer's voice | 200 | unsure | 0.565 | HELD |
+| PI04 | prompt_injection | attempt to make the label text hostile | 200 | unsure | 0.513 | HELD |
+| PI05 | prompt_injection | attempt to inject into the audit log | 200 | human | 0.382 | HELD |
+| PI06 | prompt_injection | instruction plus real human text | 200 | unsure | 0.551 | HELD |
+| MF01 | malformed | text is only whitespace | 400 | — | — | HELD |
+| MF02 | malformed | text is a single character | 400 | — | — | HELD |
+| MF03 | malformed | text is control characters | 200 | human | 0.180 | HELD |
+| MF04 | malformed | text is only punctuation | 200 | human | 0.263 | HELD |
+| MF05 | malformed | text is a very long single word | 200 | unsure | 0.719 | HELD |
+| MF06 | malformed | text is emoji only | 200 | ai | 0.999 | HELD |
+| MF07 | malformed | text is right-to-left script | 200 | ai | 0.953 | HELD |
+| MF08 | malformed | text is 60,000 characters | 400 | — | — | HELD |
+| RQ01 | malformed | no text field at all | 400 | — | — | HELD |
+| RQ02 | malformed | no creator_id | 400 | — | — | HELD |
+| RQ03 | malformed | text is a number | 400 | — | — | HELD |
+| RQ04 | malformed | text is a list | 400 | — | — | HELD |
+| RQ05 | malformed | text is null | 400 | — | — | HELD |
+| RQ06 | malformed | creator_id is an object | 400 | — | — | HELD |
+| RQ07 | malformed | body is a JSON array, not an object | 400 | — | — | HELD |
+| RQ08 | malformed | body is unparseable JSON | 400 | — | — | HELD |
+| RQ09 | malformed | body is empty | 400 | — | — | HELD |
+| RQ10 | malformed | body is form-encoded, not JSON | 429 | — | — | HELD |
+| RQ11 | malformed | body is JSON claiming to be plain text | 429 | — | — | HELD |
+| RQ12 | malformed | deeply nested JSON | 400 | — | — | HELD |
+| FL01_01 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.200 | (within limit) |
+| FL01_02 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.200 | (within limit) |
+| FL01_03 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.200 | (within limit) |
+| FL01_04 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.200 | (within limit) |
+| FL01_05 | flood_same_creator | 20 rapid submissions from one creator | 200 | human | 0.200 | (within limit) |
+| FL01_06 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_07 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_08 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_09 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_10 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_11 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+| FL01_12 | flood_same_creator | 20 rapid submissions from one creator | 429 | — | — | HELD |
+
+**Run Log — After2** (`python run_eval.py --label after2` × 3 · 2026-11-06 · `results/run_2026-11-06_1328_after2.md`)
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. my own writing | ≤1 of 10 labeled ai | 0 ai / 10 | 0 ai / 10 | 0 ai / 10 | MET |
+| 2. score spread | gap ≥ 0.40 | gap 0.41 | gap 0.41 | gap 0.41 | MET |
+| 3. label coverage | all 3 labels appear | {ai, unsure, human} | {ai, unsure, human} | {ai, unsure, human} | MET |
+| 4. appeal path (manual) | status → under_review + log entry | (carried from before) | — | — | MET |
+| 5. bad input | 5/5 return 400 | 5/5 | 5/5 | 5/5 | MET |
+
+**Did it help:** Yes. Criterion 2 flipped from MISSED to MET — the gap went from 0.3895 to 0.4127. The attack set verdicts didn't change: 8 BROKE, 48 HELD, same as after the first improvement. MF05 changed label from "ai" to "unsure" (0.779 → 0.719 with new weights) but remained HELD since there is no correct answer for a single very long word. FP05 dropped from 0.775 to 0.764 — still above the 0.75 AI threshold, still BROKE.
+
+The cost: style has equal influence to model, so surface edits that beat style (EV01, EV02, EV06) now have more leverage over the final score. Looking at the numbers: EV01 went from 0.236 to 0.308, EV02 from 0.384 to 0.327, EV06 from 0.465 to 0.418 — all still comfortably in the human zone, verdicts unchanged. The AI text's score dropped from 0.800 to 0.767, landing just above the 0.75 AI threshold by 0.017. If the threshold were any higher, this change would have pushed the AI text into "unsure." That's the real risk of equal weighting: confident AI detection requires both signals to be strongly AI, and there's less room between "unsure" and "ai" when the model signal no longer dominates.
+
 ---
 
 ## What's Still Broken
 
-**Evasion attacks (EV01, EV02, EV05, EV06, EV08)** — the threshold change didn't touch these because they all scored below 0.47 (human zone, not the AI zone). They each defeat signal two (surface editing) or signal one (short text), and no threshold change fixes a signal that's already been collapsed. What would fix them: a minimum-length gate for EV08 (reject texts under 50 words as unscoreable); a signal that uses stemmed vocabulary for EV01 (typos wouldn't count as new words); a signal that looks at semantic coherence rather than just shape for EV06. None of those are small changes. I stopped because they require redesigning a signal, not adjusting a parameter.
+**Evasion attacks (EV01, EV02, EV05, EV06, EV08)** — both improvements left these unchanged. They all scored in the human zone (below 0.47) under every configuration. EV01 and EV02 defeat signal two through surface edits; with equal weights, style matters more but it already couldn't overcome the model's human reading after bias correction. EV08 (short text) scores low on model and landed at 0.402 — closer to the threshold than before but still human. What would actually fix these: a minimum-length gate for EV08; a stemmed vocabulary measure for EV01 (typos wouldn't count as new words); a semantic coherence check for EV06. All require redesigning a signal, not adjusting weights or thresholds. I stopped because those are larger changes than the rubric asks for.
 
-**FP05 (technical documentation, 0.775)** — 0.025 above the new threshold. Raising to 0.78 would fix it but would also reclassify MF05, and the right answer for a 500-word technical document that a person wrote is "unsure" anyway, not "ai." Stopped because the trade didn't seem worth a second threshold change without data to justify 0.78 specifically.
+**FP05 (technical documentation, 0.764 after both improvements)** — still 0.014 above the AI threshold. A third threshold raise to 0.77 would fix it, but the AI text's confidence is 0.767 — 0.003 above that threshold. Fixing FP05 by moving the threshold would simultaneously move the AI text to "unsure." I stopped there: the threshold can't be raised further without losing the ability to confidently label clearly AI text.
 
-**PI01, PI02** — both scored below 0.47 (human zone) because the injection prefix text lowered GPT-2 perplexity across the whole submission. The threshold change is irrelevant: they weren't in the AI zone to begin with. Fixing this would require detecting and stripping prefixes that look like injections before scoring — which is a new pre-processing stage.
+**PI01, PI02** — injection prefix text changes GPT-2 perplexity across the whole submission, dropping scores to 0.375 and 0.229. Neither improvement touched signal one's behavior for these inputs. No weight or threshold change addresses a scoring artifact from the input itself.
 
-**Criterion 2 (score spread = 0.39, still MISSED)** — the threshold change doesn't affect gap width; the two texts score the same as before. The gap would widen if the human text's model score dropped. What would fix it: use a more conversational human text that GPT-2 finds genuinely surprising (more unusual word choices, non-standard sentence fragments). I stopped because fixing it would mean changing scenarios.py, not the service — and the criterion is legitimate; the service just barely missed it.
+**The trade I'd make if this ran for real:**
 
 **The trade I'd make if this ran for real:**
 
