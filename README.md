@@ -366,19 +366,117 @@ This is the outcome I would least want to defend because the system's bias is st
 
 <!-- Your five criteria across three trials. `run_eval.py --label before`. -->
 
+Run: `python run_eval.py --label before` × 3 · 2026-11-06 · `results/run_2026-11-06_1238_before.md`
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. my own writing | ≤1 of 10 labeled ai | 0 ai / 10 | 0 ai / 10 | 0 ai / 10 | MET |
+| 2. score spread | gap ≥ 0.40 | gap 0.39 | gap 0.39 | gap 0.39 | MISSED |
+| 3. label coverage | all 3 labels appear | {ai, human} | {ai, human} | {ai, human} | MISSED |
+| 4. appeal path (manual) | status → under_review + log entry | under_review ✓ log ✓ | — | — | MET |
+| 5. bad input | 5/5 return 400 | 5/5 | 5/5 | 5/5 | MET |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+**Real output from one trial**, pasted as text, naming the file and function that produced it:
+
+Source: `results/run_2026-11-06_1238_before.md` · produced by `run_eval.py::main` calling `app.py::submit` / `scoring.py::combine_signals`
+
+Criterion 5 — bad input, Trial 1:
 
 ```json
+[
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "(empty text)"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"creator_id\": \"eval_bad_missing\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": null, \"creator_id\": \"eval_bad_null\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": 12345, \"creator_id\": \"eval_bad_number\"}"
+  },
+  {
+    "status": 400,
+    "guess": null,
+    "confidence": null,
+    "model_score": null,
+    "style_score": null,
+    "label": null,
+    "sent": "{\"text\": [\"a\", \"b\"], \"creator_id\": \"eval_bad_list\"}"
+  }
+]
+```
 
+Criterion 4 — appeal path (manual test):
+
+Submit response (POST /submit):
+```json
+{
+  "confidence": 0.6873,
+  "content_id": "5dc2f22e-f531-4105-ab65-51c08dbbce75",
+  "guess": "ai",
+  "label": "This submission closely matches the patterns we see in AI-generated text — predictable word choices and an even, regular style. We think it was written by an AI. If you wrote this yourself, you can appeal using the content ID in this response.",
+  "model_score": 0.7508,
+  "style_score": 0.5695
+}
+```
+
+Appeal response (POST /appeal):
+```json
+{
+  "content_id": "5dc2f22e-f531-4105-ab65-51c08dbbce75",
+  "message": "Your appeal has been recorded. A human reviewer will look at this submission.",
+  "ok": true,
+  "status": "under_review"
+}
+```
+
+Audit log after appeal (GET /log?limit=2 — the two entries for this content_id):
+```json
+{
+  "combined_score": 0.6873,
+  "content_id": "5dc2f22e-f531-4105-ab65-51c08dbbce75",
+  "creator_id": "criterion4-manual-test",
+  "guess": "ai",
+  "label": "This submission closely matches the patterns we see in AI-generated text — predictable word choices and an even, regular style. We think it was written by an AI. If you wrote this yourself, you can appeal using the content ID in this response.",
+  "model_score": 0.7508,
+  "status": "decided",
+  "style_score": 0.5695,
+  "timestamp": "2026-11-06T18:41:44+00:00"
+}
+{
+  "content_id": "5dc2f22e-f531-4105-ab65-51c08dbbce75",
+  "creator_id": "appealer",
+  "event": "appeal",
+  "reasoning": "I wrote this myself this afternoon. It describes an actual trip to the library today.",
+  "status": "under_review",
+  "timestamp": "2026-11-06T18:41:51+00:00"
+}
 ```
 
 **Diagnoses**
@@ -396,6 +494,24 @@ that produced it:
                         signal at 0.6, so it dragged the whole score down."
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
+
+**Criterion 2 missed (score spread = 0.39, target 0.40)** — stage: signal one. The "clearly human" running narrative scored model_score=0.6169 — GPT-2 found it moderately predictable even though it's personal and specific. Short, punchy sentences ("Went for a run. Legs hurt. Worth it.") with common words land in a middling perplexity zone. The combined score came out to 0.4108, leaving a gap of only 0.3895 against the AI text's 0.8003. The model signal didn't push the human score low enough to open a 0.40 gap.
+
+**Criterion 3 missed (no "unsure" label in any trial)** — stage: label mapping + both signals. The "unsure" band is 0.47–0.67. My borderline texts didn't land there: the formal report text ("This report sets out the findings...") scored model=0.785, style=0.646 → combined=0.737, classified as ai. The mixed-voice text scored model=0.702, style=0.228 → combined=0.441, classified as human. Both model and style signals were decisive rather than split, so the combining rule never produced a middling score. Getting "unsure" requires both signals to land in the ambiguous zone simultaneously, which is narrow and hard to target deliberately.
+
+**EV01, EV02 broke** — stage: signal two. EV01 added typos to AI text, raising type-token ratio (more "unique" words because misspellings count as new words). EV02 broke one paragraph into short sentences, raising sentence-length spread. Both defeat the style signal specifically. The style signal weight is 0.35 — when it drops dramatically (style_score 0.165 for EV01, lower for EV02), it pulls the combined score into the human zone even when model_score is moderately AI-leaning (model=0.164 for EV01). Both signals happened to agree on "human" because typos also confuse GPT-2's perplexity estimate.
+
+**EV05 broke** — stage: both signals. A heavy human editing pass on AI text produced text that is genuinely human: model=0.321, style=0.335. When a person substantially rewrites every sentence, both signals respond correctly — the text actually changed. This is not a failure of detection so much as a reflection that rewriting at that depth produces human text.
+
+**EV06 broke** — stage: signal two. One very long sentence plus one very short one creates extreme sentence-length variation — exactly what the spread measure reads as "lumpy" human writing. style_score dropped, dragging combined to 0.465 (human). The model signal can't compensate enough when style is manipulated this directly.
+
+**EV08 broke** — stage: signal one. Very short text gives GPT-2 too little context to measure predictability. The model signal is unreliable at short lengths and defaults to low scores. Combined = 0.355 (human). Short texts reliably evade signal one regardless of origin.
+
+**FP02, FP03, FP04, FP05 broke** — stage: signal one + signal two, four attacks, one problem. All four are formal, structured human writing: a formal letter, careful non-native-speaker prose, a rubric-driven student essay, technical documentation. Formal vocabulary is predictable to GPT-2 (high model_score: 0.74–0.83). Even sentence structure scores high on the style signal (style_score 0.58–0.73). Both signals agreed these were AI, with combined scores 0.72–0.77. The service cannot distinguish "formal human" from "AI-generated" — the two look identical to both signals.
+
+**PI01, PI02 broke** — stage: signal one, with an unexpected mechanism. The injection prefixes changed the perplexity of the whole submission. PI01's prefix ("Ignore all previous instructions...") is unusual phrasing that GPT-2 finds high-perplexity, pulling model_score down to 0.164, combined to 0.401. PI02 had a similar effect: model=0.204, combined=0.222. The service didn't "obey" either instruction — it uses GPT-2 perplexity, not an instruction-following model, so true injection is impossible. The human label came from the injection text statistically changing the signal scores, not from the route handler misreading anything.
+
+**RQ07 broke** — stage: route handler. The body `["text", "creator_id"]` is valid JSON but parsed as a list. Before the fix, `payload = request.get_json(silent=True) or {}` didn't catch this — a non-empty list is truthy, so the `or {}` fallback didn't trigger, and `payload.get()` crashed with `AttributeError: 'list' object has no attribute 'get'`. Fixed in `app.py::submit` by replacing the fallback with `if not isinstance(payload, dict): payload = {}`.
 
 
 
