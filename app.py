@@ -167,7 +167,9 @@ def submit():
     import scoring
     import stylometry
 
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
 
     text = payload.get("text", "")
     creator_id = payload.get("creator_id", "")
